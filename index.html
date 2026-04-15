@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Ruleta PRO</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 30px;
+        padding: 20px;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background: #f4f6f9;
+    }
+
+    #controls {
+        width: 280px;
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+
+    h3 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+
+    textarea {
+        width: 100%;
+        height: 150px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        padding: 10px;
+        font-size: 14px;
+        resize: none;
+        outline: none;
+        transition: border 0.2s, box-shadow 0.2s;
+    }
+
+    textarea:focus {
+        border-color: #4CAF50;
+        box-shadow: 0 0 5px rgba(76,175,80,0.3);
+    }
+
+    button {
+        margin-top: 10px;
+        padding: 12px;
+        width: 100%;
+        font-size: 15px;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    button:nth-of-type(1) {
+        background: #4CAF50;
+        color: white;
+    }
+
+    button:nth-of-type(2) {
+        background: #2196F3;
+        color: white;
+    }
+
+    button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    button:active {
+        transform: scale(0.98);
+    }
+
+    #wheel-container {
+        position: relative;
+        height: 90vh;
+        aspect-ratio: 1;
+    }
+
+    canvas {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        border: 6px solid #333;
+        background: white;
+    }
+
+    #pointer {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        top: -15px;
+        font-size: 45px;
+    }
+
+    /* 🪟 MODAL */
+    #modal {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+        display: none;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #modal-content {
+        background: white;
+        padding: 40px;
+        border-radius: 15px;
+        text-align: center;
+        font-size: 26px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        animation: pop 0.3s ease;
+    }
+
+    @keyframes pop {
+        from { transform: scale(0.7); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    #modal button {
+        margin-top: 20px;
+        background: #ff5252;
+        color: white;
+    }
+
+    /* 🎊 CONFETTI */
+    .confetti {
+        position: fixed;
+        width: 10px;
+        height: 10px;
+        top: -10px;
+        opacity: 0.8;
+        animation: fall linear forwards;
+    }
+
+    @keyframes fall {
+        to {
+            transform: translateY(100vh) rotate(720deg);
+        }
+    }
+</style>
+</head>
+<body>
+
+<div id="controls">
+    <h3>Lista de nombres</h3>
+    <textarea id="names" placeholder="Juan, María, Pedro, Ana"></textarea>
+    <button onclick="createWheel()">Crear ruleta</button>
+    <button onclick="spinWheel()">Girar</button>
+</div>
+
+<div id="wheel-container">
+    <div id="pointer">▼</div>
+    <canvas id="wheel"></canvas>
+</div>
+
+<!-- MODAL -->
+<div id="modal">
+    <div id="modal-content">
+        <div id="winner-text"></div>
+        <button onclick="closeModal()">Cerrar</button>
+    </div>
+</div>
+
+<script>
+let names = [];
+let startAngle = 0;
+let arc = 0;
+let ctx;
+let size;
+
+const canvas = document.getElementById("wheel");
+ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+    const c = canvas.parentElement;
+    size = Math.min(c.clientWidth, c.clientHeight);
+    canvas.width = size;
+    canvas.height = size;
+    drawWheel();
+}
+
+window.addEventListener("resize", resizeCanvas);
+
+function createWheel() {
+    names = document.getElementById("names").value
+        .split(",")
+        .map(n => n.trim())
+        .filter(n => n);
+
+    if (!names.length) return alert("Ingresa nombres");
+
+    arc = Math.PI * 2 / names.length;
+    resizeCanvas();
+}
+
+function drawWheel() {
+    if (!names.length) return;
+
+    const center = size / 2;
+    const radius = size / 2;
+
+    ctx.clearRect(0, 0, size, size);
+
+    names.forEach((name, i) => {
+        const angle = startAngle + i * arc;
+
+        ctx.fillStyle = getColor(i);
+        ctx.beginPath();
+        ctx.moveTo(center, center);
+        ctx.arc(center, center, radius, angle, angle + arc);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(center, center);
+        ctx.rotate(angle + arc / 2);
+
+        let fontSize = Math.max(12, size / (names.length * 1.5));
+        ctx.font = fontSize + "px Arial";
+
+        let text = name.length > 15 ? name.substring(0, 12) + "..." : name;
+        ctx.fillStyle = "#000";
+        ctx.fillText(text, radius * 0.65, 5);
+
+        ctx.restore();
+    });
+}
+
+function getColor(i) {
+    const colors = ["#FF5733","#33FF57","#3357FF","#FF33A8","#FFC300","#8E44AD"];
+    return colors[i % colors.length];
+}
+
+let spinning = false;
+let spinStart, spinDuration;
+
+function spinWheel() {
+    if (!names.length || spinning) return;
+
+    spinning = true;
+    spinStart = performance.now();
+    spinDuration = Math.random() * 2000 + 4000;
+
+    requestAnimationFrame(animateSpin);
+}
+
+function animateSpin(t) {
+    let progress = (t - spinStart) / spinDuration;
+
+    if (progress >= 1) {
+        spinning = false;
+        finishSpin();
+        return;
+    }
+
+    let ease = 1 - Math.pow(1 - progress, 3);
+    startAngle += 0.35 * (1 - ease);
+
+    drawWheel();
+    requestAnimationFrame(animateSpin);
+}
+
+function finishSpin() {
+    const degrees = startAngle * 180 / Math.PI + 90;
+    const arcd = arc * 180 / Math.PI;
+    const index = Math.floor((360 - (degrees % 360)) / arcd);
+
+    const winner = names[index];
+    showModal(winner);
+    launchConfetti();
+}
+
+function showModal(name) {
+    document.getElementById("winner-text").innerText = "🎉 Ganador: " + name;
+    document.getElementById("modal").style.display = "flex";
+}
+
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+}
+
+function launchConfetti() {
+    for (let i = 0; i < 120; i++) {
+        const c = document.createElement("div");
+        c.className = "confetti";
+        c.style.left = Math.random() * 100 + "vw";
+        c.style.backgroundColor = getColor(i);
+        c.style.animationDuration = (Math.random() * 3 + 2) + "s";
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 5000);
+    }
+}
+
+resizeCanvas();
+</script>
+
+</body>
+</html>
